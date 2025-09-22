@@ -1,0 +1,32 @@
+"""
+Convert the async client to a sync client.
+"""
+
+from pathlib import Path
+import unasync
+
+
+def main():
+    additional_replacements = {
+        "AsyncClient": "Client",
+        "aclose": "close",
+    }
+    
+    
+    rules = [
+        unasync.Rule(
+            fromdir="/src/kbase/auth/_async/",
+            todir="/src/kbase/auth/_sync/",
+            additional_replacements=additional_replacements,
+        ),
+    ]
+    
+    filepaths = [
+        str(Path(__file__).parent.parent / "src" / "kbase" / "auth" / "_async" / "client.py")
+    ]
+    
+    unasync.unasync_files(filepaths, rules)
+
+
+if __name__ == "__main__":
+    main()
