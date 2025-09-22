@@ -6,7 +6,7 @@ import subprocess
 import time
 
 
-# settings are coming from the docker-compose file
+# settings come from the docker-compose file
 
 _COMPOSE_FILE = "docker-compose.yaml"
 _COMPOSE_PROJECT_NAME = "auth_client_tests"

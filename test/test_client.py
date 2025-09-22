@@ -6,12 +6,10 @@ from kbase.auth.client import KBaseAuthClient, AsyncKBaseAuthClient
 
 
 async def _create_fail(url: str, expected: Exception):
-    with pytest.raises(type(expected)) as e:
+    with pytest.raises(type(expected), match=f"^{expected.args[0]}$"):
         KBaseAuthClient.create(url)
-    assert str(e.value) == expected.args[0]
-    with pytest.raises(type(expected)) as e:
+    with pytest.raises(type(expected), match=f"^{expected.args[0]}$"):
         await AsyncKBaseAuthClient.create(url)
-    assert str(e.value) == expected.args[0]
 
 
 @pytest.mark.asyncio

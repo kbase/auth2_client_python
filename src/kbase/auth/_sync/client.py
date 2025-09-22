@@ -2,6 +2,11 @@
 A client for the KBase Authentication service.
 """
 
+### Note ###
+# The sync version of the auth client is generated from the async version; don't make changes
+# directly to the sync version - they will be overwritten. See the README for how to generate
+# the sync client.
+
 import httpx
 import logging
 from typing import Self
@@ -19,26 +24,26 @@ def _require_string(putative: str, name: str) -> str:
 
 def _check_request(r: httpx.Request):
     try:
-        j = r.json()
+        resjson = r.json()
     except Exception:
         err = "Non-JSON response from KBase auth server, status code: " + str(r.status_code)
-        # TDOO TEST LOgging in the future
+        # TODO TEST logging in the future
         logging.getLogger(__name__).info("%s, response:\n%s", err, r.text)
         raise IOError(err)
     if r.status_code != 200:
         # assume that if we get json then at least this is the auth server and we can
         # rely on the error structure.
-        err = j["error"].get("appcode")
+        err = resjson["error"].get("appcode")
         if err == 10020:  # Invalid token
             raise InvalidTokenError("KBase auth server reported token is invalid.")
         if err == 30010:  # Illegal username
             # The auth server does some goofy stuff when propagating errors, should be cleaned up
             # at some point
-            raise InvalidUserError(j["error"]["message"].split(":", 3)[-1])
+            raise InvalidUserError(resjson["error"]["message"].split(":", 3)[-1])
         # don't really see any other error codes we need to worry about - maybe disabled?
         # worry about it later.
-        raise IOError("Error from KBase auth server: " + j["error"]["message"])
-    return j
+        raise IOError("Error from KBase auth server: " + resjson["error"]["message"])
+    return resjson
 
 
 class Client:
@@ -62,8 +67,8 @@ class Client:
             raise
         # TODO CLIENT look through the myriad of auth clients to see what functionality we need
         # TODO CLIENT cache token & user using cachefor value from token
-        # TODO RELIABILIY could add retries for these methods, tenacity looks useful
-        #                 should be safe since they're all reads only
+        # TODO RELIABILITY could add retries for these methods, tenacity looks useful
+        #                  should be safe since they're all reads only
         return cli
     
     def __init__(self, base_url: str):
