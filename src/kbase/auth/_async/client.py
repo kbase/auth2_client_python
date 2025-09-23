@@ -22,7 +22,7 @@ def _require_string(putative: str, name: str) -> str:
     return putative.strip()
 
 
-def _check_request(r: httpx.Request):
+def _check_response(r: httpx.Response):
     try:
         resjson = r.json()
     except Exception:
@@ -91,7 +91,7 @@ class AsyncClient:
         
     async def _get(self, url: str, headers=None):
         r = await self._cli.get(url, headers=headers)
-        return _check_request(r)
+        return _check_response(r)
         
     async def service_version(self) -> str:
         """ Return the version of the auth server. """
