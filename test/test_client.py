@@ -1,6 +1,6 @@
 import pytest
 
-from conftest import AUTH_URL, AUTH_VERSION, auth_users  # @UnusedImport
+from conftest import AUTH_URL, AUTH_VERSION
 
 from kbase.auth.client import KBaseAuthClient, AsyncKBaseAuthClient
 
