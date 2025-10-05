@@ -1,5 +1,6 @@
 import json
 import os
+from pymongo.mongo_client import MongoClient
 import pytest
 import requests
 import subprocess
@@ -7,6 +8,9 @@ import time
 
 
 # settings come from the docker-compose file
+
+MONGO_HOST = "localhost:27017"
+MONGO_DB = 'auth2_python_client_test'
 
 _COMPOSE_FILE = "docker-compose.yaml"
 _COMPOSE_PROJECT_NAME = "auth_client_tests"
@@ -61,6 +65,16 @@ def _run_dc(env, *args):
     )
 
 
+def _clear_auth_db():
+    mc =  MongoClient(MONGO_HOST)
+    db = mc[MONGO_DB]
+    # don't drop db since that drops indexes
+    for name in db.list_collection_names():
+        if not name.startswith("system."):
+            # don't drop collection since that drops indexes
+            db.get_collection(name).delete_many({})
+    
+
 @pytest.fixture(scope="session", autouse=True)
 def docker_compose():
     env = os.environ.copy()
@@ -68,6 +82,7 @@ def docker_compose():
     try:
         _run_dc(env, "up", "-d", "--build")
         _wait_for_services()
+        _clear_auth_db()  # in case the compose was left up
         yield  # run the tests
         logarg = os.environ.get("AUTH_TEST_DUMP_LOGS")
         if logarg:
@@ -76,9 +91,9 @@ def docker_compose():
             else:
                 _run_dc(env, "logs")
     finally:
-        print("Stopping docker-compose...")
-        # TODO TEST add a way to keep things running and be able to rerun tests
-        _run_dc(env, "down")
+        if not os.environ.get("AUTH_TEST_LEAVE_COMPOSE_UP"):
+            print("Stopping docker-compose...")
+            _run_dc(env, "down")
 
 
 @pytest.fixture(scope="session", autouse=True)
