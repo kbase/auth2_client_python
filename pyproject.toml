@@ -12,6 +12,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
+    "cacheout==0.16.0",
     "httpx==0.28.1",
 ]
 
@@ -25,6 +26,7 @@ packages = ["src/kbase"]
 [dependency-groups]
 dev = [
     "ipython==9.5.0",
+    "pymongo==4.15.2",
     "pytest==8.4.2",
     "pytest-asyncio==1.2.0",
     "pytest-cov==7.0.0",
