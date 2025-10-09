@@ -85,7 +85,8 @@ class AsyncClient:
         
         base_url - the base url for the authentication service, for example
             https://kbase.us/services/auth
-        cache_max_size - the maximum size of the token and user caches.
+        cache_max_size - the maximum size of the token and user caches. When the cache size is
+            exceeded, the least recently used entries are evicted from the cache.
         timer - the timer for the cache. Used for testing. Time unit must be seconds.
         """
         cli = cls(base_url, cache_max_size, timer)
