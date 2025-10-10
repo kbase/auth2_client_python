@@ -38,6 +38,20 @@ class Token:
 _VALID_TOKEN_FIELDS = {f.name for f in fields(Token)}
 
 
+@dataclass
+class User:
+    """ Information about a KBase user. """
+    user: str
+    """ The username of the user associated with the token. """
+    customroles: list[str]
+    """ The Auth2 custom roles the user possesses. """
+    # Not seeing any other fields that are generally useful right now
+    # Don't really want to expose idents unless there's a very good reason
+
+
+_VALID_USER_FIELDS = {f.name for f in fields(User)}
+
+
 def _require_string(putative: str, name: str) -> str:
     if not isinstance(putative, str) or not putative.strip():
         raise ValueError(f"{name} is required and cannot be a whitespace only string")
@@ -98,7 +112,7 @@ class AsyncClient:
             await cli.close()
             raise
         # TODO CLIENT look through the myriad of auth clients to see what functionality we need
-        # TODO CLIENT cache user using cachefor value from token
+        # TODO CLIENT cache valid user names using cachefor value from token
         # TODO RELIABILITY could add retries for these methods, tenacity looks useful
         #                  should be safe since they're all reads only
         return cli
@@ -114,6 +128,7 @@ class AsyncClient:
         if not timer:
             raise ValueError("timer is required")
         self._token_cache = LRUCache(maxsize=cache_max_size, timer=timer)
+        self._user_cache = LRUCache(maxsize=cache_max_size, timer=timer)
         self._cli = httpx.AsyncClient()
 
     async def __aenter__(self):
@@ -157,3 +172,29 @@ class AsyncClient:
         #           in test mode
         self._token_cache.set(token, tk, ttl=tk.cachefor / 1000)
         return tk
+
+    async def get_user(self, token: str, on_cache_miss: Callable[[], None]=None) -> User:
+        """
+        Get information about a KBase user. This method caches the user;
+        further caching is unnecessary in most cases.
+        
+        If you just need the user name get_token is potentially cheaper.
+        
+        token - the token of the user to query.
+        on_cache_miss - a function to call if a cache miss occurs.
+        """
+        # really similar to the above, not quite similar enough to make a shared method
+        _require_string(token, "token")
+        user = self._user_cache.get(token, default=False)
+        if user:
+            return user
+        if on_cache_miss:
+            on_cache_miss()
+        tk = await self.get_token(token)
+        res = await self._get(self._me_url, headers={"Authorization": token})
+        u = User(**{k: v for k, v in res.items() if k in _VALID_USER_FIELDS})
+        # TODO TEST later may want to add tests that change the cachefor value.
+        #           Cleanest way to do this is update the auth2 service to allow setting it
+        #           in test mode
+        self._user_cache.set(token, u, ttl=tk.cachefor / 1000)
+        return u

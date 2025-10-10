@@ -213,3 +213,127 @@ async def test_get_token_cache_evict_on_time(auth_users):
         ttt1 = await cli.get_token(auth_users["user"], on_cache_miss=cachemiss)
         assert cachemiss.call_count == 2
         assert ttt1 == t1
+
+
+@pytest.mark.asyncio
+async def test_get_user_basic(auth_users):
+    with KBaseAuthClient.create(AUTH_URL) as cli:
+        u1 = cli.get_user(auth_users["user"])
+        u2 = cli.get_user(auth_users["user_all"])
+    async with await AsyncKBaseAuthClient.create(AUTH_URL) as cli:
+        u3 = await cli.get_user(auth_users["user_random1"])
+        u4 = await cli.get_user(auth_users["user_random2"])
+
+    assert u1.user == "user"
+    assert u1.customroles == []
+
+    assert u2.user == "user_all"
+    assert u2.customroles == ["random1", "random2"]
+    
+    assert u3.user == "user_random1"
+    assert u3.customroles == ["random1"]
+    
+    assert u4.user == "user_random2"
+    assert u4.customroles == ["random2"]
+
+
+@pytest.mark.asyncio
+async def test_get_user_basic_fail(auth_users):
+    err = "token is required and cannot be a whitespace only string"
+    await _get_user_basic_fail(None, ValueError(err))
+    await _get_user_basic_fail("   \t  ", ValueError(err))
+    err = "KBase auth server reported token is invalid."
+    await _get_user_basic_fail("superfake", InvalidTokenError(err))
+
+
+async def _get_user_basic_fail(token: str, expected: Exception):
+    with KBaseAuthClient.create(AUTH_URL) as cli:
+        with pytest.raises(type(expected), match=f"^{expected.args[0]}$"):
+            cli.get_user(token)
+    async with await AsyncKBaseAuthClient.create(AUTH_URL) as cli:
+        with pytest.raises(type(expected), match=f"^{expected.args[0]}$"):
+            await cli.get_user(token)
+
+
+@pytest.mark.asyncio
+async def test_get_user_cache_evict_on_size(auth_users):
+    with KBaseAuthClient.create(AUTH_URL, cache_max_size=3) as cli:
+        cachemiss = Mock()
+        # fill the cache
+        u1 = cli.get_user(auth_users["user"], on_cache_miss=cachemiss)
+        u2 = cli.get_user(auth_users["user_random1"], on_cache_miss=cachemiss)
+        u3 = cli.get_user(auth_users["user_random2"], on_cache_miss=cachemiss)
+        assert cachemiss.call_count == 3
+        # check userss in cache
+        uu1 = cli.get_user(auth_users["user"], on_cache_miss=cachemiss)
+        uu2 = cli.get_user(auth_users["user_random1"], on_cache_miss=cachemiss)
+        uu3 = cli.get_user(auth_users["user_random2"], on_cache_miss=cachemiss)
+        assert cachemiss.call_count == 3
+        assert uu1 == u1
+        assert uu2 == u2
+        assert uu3 == u3
+        # Force an eviction
+        cli.get_user(auth_users["user_all"], on_cache_miss=cachemiss)
+        assert cachemiss.call_count == 4
+        # Check user was evicted
+        uuu1 = cli.get_user(auth_users["user"], on_cache_miss=cachemiss)
+        assert cachemiss.call_count == 5
+        assert uuu1 == u1
+        
+    async with await AsyncKBaseAuthClient.create(AUTH_URL, cache_max_size=3) as cli:
+        cachemiss = Mock()
+        # fill the cache
+        u1 = await cli.get_user(auth_users["user"], on_cache_miss=cachemiss)
+        u2 = await cli.get_user(auth_users["user_random1"], on_cache_miss=cachemiss)
+        u3 = await cli.get_user(auth_users["user_random2"], on_cache_miss=cachemiss)
+        assert cachemiss.call_count == 3
+        # check users in cache
+        uu1 = await cli.get_user(auth_users["user"], on_cache_miss=cachemiss)
+        uu2 = await cli.get_user(auth_users["user_random1"], on_cache_miss=cachemiss)
+        uu3 = await cli.get_user(auth_users["user_random2"], on_cache_miss=cachemiss)
+        assert cachemiss.call_count == 3
+        assert uu1 == u1
+        assert uu2 == u2
+        assert uu3 == u3
+        # Force an eviction
+        await cli.get_user(auth_users["user_all"], on_cache_miss=cachemiss)
+        assert cachemiss.call_count == 4
+        # Check user was evicted
+        uuu1 = await cli.get_user(auth_users["user"], on_cache_miss=cachemiss)
+        assert cachemiss.call_count == 5
+        assert uuu1 == u1
+
+
+@pytest.mark.asyncio
+async def test_get_user_cache_evict_on_time(auth_users):
+    timer = FakeTimer()
+    with KBaseAuthClient.create(AUTH_URL, timer=timer) as cli:
+        cachemiss = Mock()
+        u1 = cli.get_user(auth_users["user"], on_cache_miss=cachemiss)
+        assert cachemiss.call_count == 1
+        # TODO TEST auth2 always returns 300000 ms for cachefor. Update testmode to allow
+        #           setting different values and test here
+        timer.advance(299)
+        uu1 = cli.get_user(auth_users["user"], on_cache_miss=cachemiss)
+        assert cachemiss.call_count == 1
+        assert uu1 == u1
+        timer.advance(2)
+        uuu1 = cli.get_user(auth_users["user"], on_cache_miss=cachemiss)
+        assert cachemiss.call_count == 2
+        assert uuu1 == u1
+        
+    timer = FakeTimer()
+    async with await AsyncKBaseAuthClient.create(AUTH_URL, timer=timer) as cli:
+        cachemiss = Mock()
+        u1 = await cli.get_user(auth_users["user"], on_cache_miss=cachemiss)
+        assert cachemiss.call_count == 1
+        # TODO TEST auth2 always returns 300000 ms for cachefor. Update testmode to allow
+        #           setting different values and test here
+        timer.advance(299)
+        uu1 = await cli.get_user(auth_users["user"], on_cache_miss=cachemiss)
+        assert cachemiss.call_count == 1
+        assert uu1 == u1
+        timer.advance(2)
+        uuu1 = await cli.get_user(auth_users["user"], on_cache_miss=cachemiss)
+        assert cachemiss.call_count == 2
+        assert uuu1 == u1
