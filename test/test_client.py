@@ -6,7 +6,7 @@ import uuid
 from conftest import AUTH_URL, AUTH_VERSION
 
 from kbase.auth.client import KBaseAuthClient, AsyncKBaseAuthClient
-from kbase.auth.exceptions import InvalidTokenError
+from kbase.auth.exceptions import InvalidTokenError, InvalidUserError
 
 
 async def _create_fail(url: str, expected: Exception, cachesize=1, timer=time.time):
@@ -104,15 +104,15 @@ async def test_get_token_basic(auth_users):
 
 
 @pytest.mark.asyncio
-async def test_get_token_basic_fail(auth_users):
+async def test_get_token_fail(auth_users):
     err = "token is required and cannot be a whitespace only string"
-    await _get_token_basic_fail(None, ValueError(err))
-    await _get_token_basic_fail("   \t  ", ValueError(err))
+    await _get_token_fail(None, ValueError(err))
+    await _get_token_fail("   \t  ", ValueError(err))
     err = "KBase auth server reported token is invalid."
-    await _get_token_basic_fail("superfake", InvalidTokenError(err))
+    await _get_token_fail("superfake", InvalidTokenError(err))
 
 
-async def _get_token_basic_fail(token: str, expected: Exception):
+async def _get_token_fail(token: str, expected: Exception):
     with KBaseAuthClient.create(AUTH_URL) as cli:
         with pytest.raises(type(expected), match=f"^{expected.args[0]}$"):
             cli.get_token(token)
@@ -187,8 +187,7 @@ async def test_get_token_cache_evict_on_time(auth_users):
         cachemiss = Mock()
         t1 = cli.get_token(auth_users["user"], on_cache_miss=cachemiss)
         assert cachemiss.call_count == 1
-        # TODO TEST auth2 always returns 300000 ms for cachefor. Update testmode to allow
-        #           setting different values and test here
+        # TODO TEST test with alternate cachefor values. Changing this in auth2 is clunky
         timer.advance(299)
         tt1 = cli.get_token(auth_users["user"], on_cache_miss=cachemiss)
         assert cachemiss.call_count == 1
@@ -203,8 +202,7 @@ async def test_get_token_cache_evict_on_time(auth_users):
         cachemiss = Mock()
         t1 = await cli.get_token(auth_users["user"], on_cache_miss=cachemiss)
         assert cachemiss.call_count == 1
-        # TODO TEST auth2 always returns 300000 ms for cachefor. Update testmode to allow
-        #           setting different values and test here
+        # TODO TEST test with alternate cachefor values. Changing this in auth2 is clunky
         timer.advance(299)
         tt1 = await cli.get_token(auth_users["user"], on_cache_miss=cachemiss)
         assert cachemiss.call_count == 1
@@ -238,15 +236,15 @@ async def test_get_user_basic(auth_users):
 
 
 @pytest.mark.asyncio
-async def test_get_user_basic_fail(auth_users):
+async def test_get_user_fail(auth_users):
     err = "token is required and cannot be a whitespace only string"
-    await _get_user_basic_fail(None, ValueError(err))
-    await _get_user_basic_fail("   \t  ", ValueError(err))
+    await _get_user_fail(None, ValueError(err))
+    await _get_user_fail("   \t  ", ValueError(err))
     err = "KBase auth server reported token is invalid."
-    await _get_user_basic_fail("superfake", InvalidTokenError(err))
+    await _get_user_fail("superfake", InvalidTokenError(err))
 
 
-async def _get_user_basic_fail(token: str, expected: Exception):
+async def _get_user_fail(token: str, expected: Exception):
     with KBaseAuthClient.create(AUTH_URL) as cli:
         with pytest.raises(type(expected), match=f"^{expected.args[0]}$"):
             cli.get_user(token)
@@ -264,7 +262,7 @@ async def test_get_user_cache_evict_on_size(auth_users):
         u2 = cli.get_user(auth_users["user_random1"], on_cache_miss=cachemiss)
         u3 = cli.get_user(auth_users["user_random2"], on_cache_miss=cachemiss)
         assert cachemiss.call_count == 3
-        # check userss in cache
+        # check users in cache
         uu1 = cli.get_user(auth_users["user"], on_cache_miss=cachemiss)
         uu2 = cli.get_user(auth_users["user_random1"], on_cache_miss=cachemiss)
         uu3 = cli.get_user(auth_users["user_random2"], on_cache_miss=cachemiss)
@@ -311,8 +309,7 @@ async def test_get_user_cache_evict_on_time(auth_users):
         cachemiss = Mock()
         u1 = cli.get_user(auth_users["user"], on_cache_miss=cachemiss)
         assert cachemiss.call_count == 1
-        # TODO TEST auth2 always returns 300000 ms for cachefor. Update testmode to allow
-        #           setting different values and test here
+        # TODO TEST test with alternate cachefor values. Changing this in auth2 is clunky
         timer.advance(299)
         uu1 = cli.get_user(auth_users["user"], on_cache_miss=cachemiss)
         assert cachemiss.call_count == 1
@@ -327,8 +324,7 @@ async def test_get_user_cache_evict_on_time(auth_users):
         cachemiss = Mock()
         u1 = await cli.get_user(auth_users["user"], on_cache_miss=cachemiss)
         assert cachemiss.call_count == 1
-        # TODO TEST auth2 always returns 300000 ms for cachefor. Update testmode to allow
-        #           setting different values and test here
+        # TODO TEST test with alternate cachefor values. Changing this in auth2 is clunky
         timer.advance(299)
         uu1 = await cli.get_user(auth_users["user"], on_cache_miss=cachemiss)
         assert cachemiss.call_count == 1
@@ -337,3 +333,169 @@ async def test_get_user_cache_evict_on_time(auth_users):
         uuu1 = await cli.get_user(auth_users["user"], on_cache_miss=cachemiss)
         assert cachemiss.call_count == 2
         assert uuu1 == u1
+
+
+@pytest.mark.asyncio
+async def test_validate_usernames_noop(auth_users):
+        with KBaseAuthClient.create(AUTH_URL) as cli:
+            res1 = cli.validate_usernames(auth_users["user"])
+            res2 = cli.validate_usernames(auth_users["user"], "    \t   ")
+        async with await AsyncKBaseAuthClient.create(AUTH_URL) as cli:
+            res3 = await cli.validate_usernames(auth_users["user"])
+            res4 = await cli.validate_usernames(auth_users["user"], "     ")
+
+        assert res1 == {}
+        assert res2 == {}
+        assert res3 == {}
+        assert res4 == {}
+
+
+@pytest.mark.asyncio
+async def test_validate_usernames_basic(auth_users):
+        with KBaseAuthClient.create(AUTH_URL) as cli:
+            res1 = cli.validate_usernames(
+                auth_users["user"],
+                "user", "foo", "user_all", "whee", "user",  # should ignore duplicates
+            )
+        async with await AsyncKBaseAuthClient.create(AUTH_URL) as cli:
+            res2 = await cli.validate_usernames(
+                auth_users["user"],
+                "user", "baz", "    \t   ", "user_random1", "user_random3", "user",
+        )
+
+        assert res1 == {"foo": False, "user": True, "user_all": True, "whee": False}
+        assert res2 == {"baz": False, "user": True, "user_random1": True, "user_random3": False}
+
+
+@pytest.mark.asyncio
+async def test_validate_usernames_fail(auth_users):
+    err = "token is required and cannot be a whitespace only string"
+    await _validate_usernames_fail(None, [], ValueError(err))
+    await _validate_usernames_fail("   \t  ", [], ValueError(err))
+    err = "KBase auth server reported token is invalid."
+    await _validate_usernames_fail("superfake", ["user"], InvalidTokenError(err))
+    err = "Illegal character in user name a-b: -"
+    await _validate_usernames_fail("superfake", ["user", "a-b"], InvalidUserError(err))
+
+
+async def _validate_usernames_fail(token: str, users: list[str], expected: Exception):
+    with KBaseAuthClient.create(AUTH_URL) as cli:
+        with pytest.raises(type(expected), match=f"^{expected.args[0]}$"):
+            cli.validate_usernames(token, *users)
+    async with await AsyncKBaseAuthClient.create(AUTH_URL) as cli:
+        with pytest.raises(type(expected), match=f"^{expected.args[0]}$"):
+            await cli.validate_usernames(token, *users)
+
+
+@pytest.mark.asyncio
+async def test_validate_usernames_cache_evict_on_size(auth_users):
+    missed = []
+    def cachemiss(user):
+        missed.append(user)
+    with KBaseAuthClient.create(AUTH_URL, cache_max_size=3) as cli:
+        # fill the cache
+        res = cli.validate_usernames(
+            auth_users["user"],
+            "user", "user_random1", "user_random2", "nouser",
+            on_cache_miss=cachemiss
+        )
+        assert res == {"user": True, "user_random1": True, "user_random2": True, "nouser": False}
+        assert missed == ["user", "user_random1", "user_random2", "nouser"]
+        missed.clear()
+        # check users in cache
+        res = cli.validate_usernames(
+            auth_users["user"],
+            "user", "user_random1", "user_random2", "nouser",
+            on_cache_miss=cachemiss
+        )
+        assert res == {"user": True, "user_random1": True, "user_random2": True, "nouser": False}
+        assert missed == ["nouser"]
+        missed.clear()
+        # Force an eviction
+        res = cli.validate_usernames(auth_users["user"], "user_all", on_cache_miss=cachemiss)
+        assert res == {"user_all": True}
+        assert missed == ["user_all"]
+        missed.clear()
+        # Check user was evicted
+        res = cli.validate_usernames(
+            auth_users["user"],
+            "user", "user_random2",
+            on_cache_miss=cachemiss
+        )
+        assert res == {"user": True, "user_random2": True}
+        assert missed == ["user"]
+
+    missed.clear()
+    async with await AsyncKBaseAuthClient.create(AUTH_URL, cache_max_size=3) as cli:
+        # fill the cache
+        res = await cli.validate_usernames(
+            auth_users["user"],
+            "user", "user_random1", "user_random2", "nouser",
+            on_cache_miss=cachemiss
+        )
+        assert res == {"user": True, "user_random1": True, "user_random2": True, "nouser": False}
+        assert missed == ["user", "user_random1", "user_random2", "nouser"]
+        missed.clear()
+        # check users in cache
+        res = await cli.validate_usernames(
+            auth_users["user"],
+            "user", "user_random1", "user_random2", "nouser",
+            on_cache_miss=cachemiss
+        )
+        assert res == {"user": True, "user_random1": True, "user_random2": True, "nouser": False}
+        assert missed == ["nouser"]
+        missed.clear()
+        # Force an eviction
+        res = await cli.validate_usernames(auth_users["user"], "user_all", on_cache_miss=cachemiss)
+        assert res == {"user_all": True}
+        assert missed == ["user_all"]
+        missed.clear()
+        # Check user was evicted
+        res = await cli.validate_usernames(
+            auth_users["user"],
+            "user", "user_random2",
+            on_cache_miss=cachemiss
+        )
+        assert res == {"user": True, "user_random2": True}
+        assert missed == ["user"]
+
+
+@pytest.mark.asyncio
+async def test_validate_usernames_cache_evict_on_time(auth_users):
+    timer = FakeTimer()
+    missed = []
+    def cachemiss(user):
+        missed.append(user)
+    with KBaseAuthClient.create(AUTH_URL, timer=timer) as cli:
+        res = cli.validate_usernames(auth_users["user"], "user_all", on_cache_miss=cachemiss)
+        assert res == {"user_all": True}
+        assert missed == ["user_all"]
+        missed.clear()
+        # TODO TEST test with alternate cachefor values. Changing this in auth2 is clunky
+        timer.advance(299)
+        res = cli.validate_usernames(auth_users["user"], "user_all", on_cache_miss=cachemiss)
+        assert res == {"user_all": True}
+        assert missed == []
+        missed.clear()
+        timer.advance(2)
+        res = cli.validate_usernames(auth_users["user"], "user_all", on_cache_miss=cachemiss)
+        assert res == {"user_all": True}
+        assert missed == ["user_all"]
+        
+    timer = FakeTimer()
+    missed.clear()
+    async with await AsyncKBaseAuthClient.create(AUTH_URL, timer=timer) as cli:
+        res = await cli.validate_usernames(auth_users["user"], "user_all", on_cache_miss=cachemiss)
+        assert res == {"user_all": True}
+        assert missed == ["user_all"]
+        missed.clear()
+        # TODO TEST test with alternate cachefor values. Changing this in auth2 is clunky
+        timer.advance(299)
+        res = await cli.validate_usernames(auth_users["user"], "user_all", on_cache_miss=cachemiss)
+        assert res == {"user_all": True}
+        assert missed == []
+        missed.clear()
+        timer.advance(2)
+        res = await cli.validate_usernames(auth_users["user"], "user_all", on_cache_miss=cachemiss)
+        assert res == {"user_all": True}
+        assert missed == ["user_all"]

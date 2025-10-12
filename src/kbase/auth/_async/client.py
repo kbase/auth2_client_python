@@ -18,6 +18,11 @@ from uuid import UUID
 from kbase.auth.exceptions import InvalidTokenError, InvalidUserError
 
 # TODO PUBLISH make a pypi kbase org and publish there
+# TODO RELIABILITY could add retries for these methods, tenacity looks useful
+#                  should be safe since they're all read only
+# TODO NOW CODE make a kbase/auth.py module, move other code into _auth, and import everything
+# TODO NOW CODE move Token and User into a common class
+# We might want to expand exceptions to include the request ID for debugging purposes
 
 
 @dataclass
@@ -75,14 +80,14 @@ def _check_response(r: httpx.Response):
         if err == 30010:  # Illegal username
             # The auth server does some goofy stuff when propagating errors, should be cleaned up
             # at some point
-            raise InvalidUserError(resjson["error"]["message"].split(":", 3)[-1])
+            raise InvalidUserError(resjson["error"]["message"].split(":", 3)[-1].strip())
         # don't really see any other error codes we need to worry about - maybe disabled?
         # worry about it later.
         raise IOError("Error from KBase auth server: " + resjson["error"]["message"])
     return resjson
 
 
-class AsyncClient:
+class AsyncKBaseAuthClient:
     """
     A client for the KBase Authentication service.
     """
@@ -111,10 +116,6 @@ class AsyncClient:
         except:
             await cli.close()
             raise
-        # TODO CLIENT look through the myriad of auth clients to see what functionality we need
-        # TODO CLIENT cache valid user names using cachefor value from token
-        # TODO RELIABILITY could add retries for these methods, tenacity looks useful
-        #                  should be safe since they're all reads only
         return cli
     
     def __init__(self, base_url: str, cache_max_size: int, timer: Callable[[[]], int | float]):
@@ -123,12 +124,14 @@ class AsyncClient:
         self._base_url = base_url
         self._token_url = base_url + "api/V2/token"
         self._me_url = base_url + "api/V2/me"
+        self._users_url = base_url + "api/V2/users/?list="
         if cache_max_size < 1:
             raise ValueError("cache_max_size must be > 0")
         if not timer:
             raise ValueError("timer is required")
         self._token_cache = LRUCache(maxsize=cache_max_size, timer=timer)
         self._user_cache = LRUCache(maxsize=cache_max_size, timer=timer)
+        self._user_name_cache = LRUCache(maxsize=cache_max_size, timer=timer)
         self._cli = httpx.AsyncClient()
 
     async def __aenter__(self):
@@ -168,8 +171,6 @@ class AsyncClient:
         res = await self._get(self._token_url, headers={"Authorization": token})
         tk = Token(**{k: v for k, v in res.items() if k in _VALID_TOKEN_FIELDS})
         # TODO TEST later may want to add tests that change the cachefor value.
-        #           Cleanest way to do this is update the auth2 service to allow setting it
-        #           in test mode
         self._token_cache.set(token, tk, ttl=tk.cachefor / 1000)
         return tk
 
@@ -194,7 +195,57 @@ class AsyncClient:
         res = await self._get(self._me_url, headers={"Authorization": token})
         u = User(**{k: v for k, v in res.items() if k in _VALID_USER_FIELDS})
         # TODO TEST later may want to add tests that change the cachefor value.
-        #           Cleanest way to do this is update the auth2 service to allow setting it
-        #           in test mode
         self._user_cache.set(token, u, ttl=tk.cachefor / 1000)
         return u
+        
+    async def validate_usernames(
+        self,
+        token: str,
+        *usernames: str,
+        on_cache_miss: Callable[[str], None] = None
+    ) -> dict[str, bool]:
+        """
+        Validate that one or more usernames exist in the auth service. 
+        
+        If any of the names are illegal, an error is thrown.
+        
+        token - a valid KBase token for any user.
+        usernames - one or more usernames to query.
+        on_cache_miss - a function to call if a cache miss occurs. The single argument is the
+            username that was not in the cache
+        
+        Returns a dict of username -> boolean which is True if the username exists.
+        """
+        _require_string(token, "token")
+        if not usernames:
+            return {}
+        # use a dict to preserve ordering for testing purposes
+        uns = {u.strip(): 1 for u in usernames if u.strip()}
+        to_return = {}
+        to_query = set()
+        for u in uns.keys():
+            if self._user_name_cache.get(u, default=False):
+                to_return[u] = True
+            else:
+                if on_cache_miss:
+                    on_cache_miss(u)
+                to_query.add(u)
+        if not to_query:
+            return to_return
+        res = await self._get(
+            self._users_url + ",".join(to_query),
+            headers={"Authorization": token}
+        )
+        tk = None
+        for u in to_query:
+            exists = u in res
+            to_return[u] = exists
+            if exists:
+                if not tk:  # minor optimization, don't get the token until it's needed
+                    tk = await self.get_token(token)
+                # Usernames are permanent but can be disabled, so we expire based on time
+                # Don't cache non-existant names, could be created at any time and would
+                # be terrible UX for new users
+                # TODO TEST later may want to add tests that change the cachefor value.
+                self._user_name_cache.set(u, True, ttl=tk.cachefor / 1000)
+        return to_return
