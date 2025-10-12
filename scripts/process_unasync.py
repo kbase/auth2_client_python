@@ -16,14 +16,14 @@ def main():
     
     rules = [
         unasync.Rule(
-            fromdir="/src/kbase/auth/_async/",
-            todir="/src/kbase/auth/_sync/",
+            fromdir="/src/kbase/_auth/_async/",
+            todir="/src/kbase/_auth/_sync/",
             additional_replacements=additional_replacements,
         ),
     ]
     
     filepaths = [
-        str(Path(__file__).parent.parent / "src" / "kbase" / "auth" / "_async" / "client.py")
+        str(Path(__file__).parent.parent / "src" / "kbase" / "_auth" / "_async" / "client.py")
     ]
     
     unasync.unasync_files(filepaths, rules)
