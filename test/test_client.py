@@ -12,7 +12,12 @@ from kbase.auth import (
     KBaseAuthClient,
     Token,
     User,
+    __version__ as ver,
 )
+
+
+def test_version():
+    assert ver == "0.1.0"
 
 
 async def _create_fail(url: str, expected: Exception, cachesize=1, timer=time.time):

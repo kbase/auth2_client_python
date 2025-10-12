@@ -12,7 +12,70 @@ TODO INSTALL setup a KBase pypi org and publish there
 
 ## Usage
 
-TODO USAGE
+Both sync and async versions of the client are provided - `KBaseAuthClient`
+and `AsyncKBaseAuthClient`, respectively. Here we demonstrate usage of the async client -
+to use the sync client, just switch the client name when creating the client and remove the
+`async` and `await` keywords. The examples assume there is a valid KBase token in the
+`token` variable.
+
+Note that all methods have internal caches and further caching is not necessary.
+
+Replace the CI environment url with the url of the environment you wish to query.
+
+### Get the version of the auth service
+
+```python
+from kbase.auth import AsyncKBaseAuthClient
+
+async with await AsyncKBaseAuthClient.create("https://ci.kbase.us/services/auth") as cli:
+    print(await cli.service_version())
+0.7.2
+```
+
+### Get a token
+
+This is the cheapest method to get a KBase username from a token.
+
+```python
+from kbase.auth import AsyncKBaseAuthClient
+
+async with await AsyncKBaseAuthClient.create("https://ci.kbase.us/services/auth") as cli:
+    print(await cli.get_token(token))
+Token(id='67797406-c6a3-4ee0-870d-976739dacd61', user='gaprice', created=1755561300704, expires=1763337300704, cachefor=300000)
+```
+
+### Get a user
+
+```python
+from kbase.auth import AsyncKBaseAuthClient
+
+async with await AsyncKBaseAuthClient.create("https://ci.kbase.us/services/auth") as cli:
+    print(await cli.get_user(token))
+User(user='gaprice', customroles=['KBASE_STAFF', 'goofypants'])
+```
+
+### Validate usernames
+
+```python
+from kbase.auth import AsyncKBaseAuthClient
+
+async with await AsyncKBaseAuthClient.create("https://ci.kbase.us/services/auth") as cli:
+    print(await cli.validate_usernames(token, "gaprice", "superfake"))
+{'gaprice': True, 'superfake': False}
+```
+
+### Without a context manager
+
+The clients can be used without a context manager, in which case the user is responsible for
+ensuring they're closed:
+
+```python
+from kbase.auth import AsyncKBaseAuthClient
+
+cli = await AsyncKBaseAuthClient.create("https://ci.kbase.us/services/auth")
+
+await cli.close()
+```
 
 ## Development
 
@@ -40,6 +103,7 @@ uv run scripts/process_unasync.py
 * Releases
   * The main branch is the stable branch. Releases are made from the develop branch to the main
     branch.
+  * Update the version in `auth.py`.
   * Tag the version in git and github.
   * Create a github release.
 

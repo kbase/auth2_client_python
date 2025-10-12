@@ -13,3 +13,6 @@ from kbase._auth.models import (
     Token,  # @UnusedImport
     User,  # @UnusedImport
 )
+
+
+__version__ = "0.1.0"

@@ -39,5 +39,5 @@ class User:
 
 VALID_USER_FIELDS: set[str] = {f.name for f in fields(User)}
 """
-The field names for the user dataclass.
+The field names for the User dataclass.
 """
