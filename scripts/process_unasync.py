@@ -8,6 +8,7 @@ import unasync
 
 def main():
     additional_replacements = {
+        "AsyncKBaseAuthClient": "KBaseAuthClient",
         "AsyncClient": "Client",
         "aclose": "close",
     }
