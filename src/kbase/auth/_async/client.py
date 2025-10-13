@@ -244,7 +244,7 @@ class AsyncKBaseAuthClient:
                 if not tk:  # minor optimization, don't get the token until it's needed
                     tk = await self.get_token(token)
                 # Usernames are permanent but can be disabled, so we expire based on time
-                # Don't cache non-existant names, could be created at any time and would
+                # Don't cache non-existent names, could be created at any time and would
                 # be terrible UX for new users
                 # TODO TEST later may want to add tests that change the cachefor value.
                 self._username_cache.set(u, True, ttl=tk.cachefor / 1000)
