@@ -8,53 +8,18 @@ A client for the KBase Authentication service.
 # the sync client.
 
 from cacheout.lru import LRUCache
-from dataclasses import dataclass, fields
 import httpx
 import logging
 import time
 from typing import Self, Callable
-from uuid import UUID
 
-from kbase.auth.exceptions import InvalidTokenError, InvalidUserError
+from kbase._auth.exceptions import InvalidTokenError, InvalidUserError
+from kbase._auth.models import Token, User, VALID_TOKEN_FIELDS, VALID_USER_FIELDS
 
 # TODO PUBLISH make a pypi kbase org and publish there
 # TODO RELIABILITY could add retries for these methods, tenacity looks useful
 #                  should be safe since they're all read only
-# TODO NOW CODE make a kbase/auth.py module, move other code into _auth, and import everything
-# TODO NOW CODE move Token and User into a common class
 # We might want to expand exceptions to include the request ID for debugging purposes
-
-
-@dataclass
-class Token:
-    """ A KBase authentication token. """
-    id: UUID
-    """ The token's unique ID. """
-    user: str
-    """ The username of the user associated with the token. """
-    created: int
-    """ The time the token was created in epoch milliseconds. """
-    expires: int
-    """ The time the token expires in epoch milliseconds. """
-    cachefor: int
-    """ The time the token should be cached for in milliseconds. """
-    # TODO MFA add mfa info when the auth service supports it
-
-_VALID_TOKEN_FIELDS = {f.name for f in fields(Token)}
-
-
-@dataclass
-class User:
-    """ Information about a KBase user. """
-    user: str
-    """ The username of the user associated with the token. """
-    customroles: list[str]
-    """ The Auth2 custom roles the user possesses. """
-    # Not seeing any other fields that are generally useful right now
-    # Don't really want to expose idents unless there's a very good reason
-
-
-_VALID_USER_FIELDS = {f.name for f in fields(User)}
 
 
 def _require_string(putative: str, name: str) -> str:
@@ -169,7 +134,7 @@ class AsyncKBaseAuthClient:
         if on_cache_miss:
             on_cache_miss()
         res = await self._get(self._token_url, headers={"Authorization": token})
-        tk = Token(**{k: v for k, v in res.items() if k in _VALID_TOKEN_FIELDS})
+        tk = Token(**{k: v for k, v in res.items() if k in VALID_TOKEN_FIELDS})
         # TODO TEST later may want to add tests that change the cachefor value.
         self._token_cache.set(token, tk, ttl=tk.cachefor / 1000)
         return tk
@@ -193,7 +158,7 @@ class AsyncKBaseAuthClient:
             on_cache_miss()
         tk = await self.get_token(token)
         res = await self._get(self._me_url, headers={"Authorization": token})
-        u = User(**{k: v for k, v in res.items() if k in _VALID_USER_FIELDS})
+        u = User(**{k: v for k, v in res.items() if k in VALID_USER_FIELDS})
         # TODO TEST later may want to add tests that change the cachefor value.
         self._user_cache.set(token, u, ttl=tk.cachefor / 1000)
         return u

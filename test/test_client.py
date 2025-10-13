@@ -5,8 +5,14 @@ import uuid
 
 from conftest import AUTH_URL, AUTH_VERSION
 
-from kbase.auth.client import KBaseAuthClient, AsyncKBaseAuthClient
-from kbase.auth.exceptions import InvalidTokenError, InvalidUserError
+from kbase.auth import (
+    AsyncKBaseAuthClient,
+    InvalidTokenError,
+    InvalidUserError,
+    KBaseAuthClient,
+    Token,
+    User,
+)
 
 
 async def _create_fail(url: str, expected: Exception, cachesize=1, timer=time.time):
@@ -90,15 +96,17 @@ async def test_get_token_basic(auth_users):
     async with await AsyncKBaseAuthClient.create(AUTH_URL) as cli:
         t2 = await cli.get_token(auth_users["user_random1"])
 
+    assert t1 == Token(
+        id=t1.id, user="user", cachefor=300000, created=t1.created, expires=t1.expires
+    )
     assert is_valid_uuid(t1.id)
-    assert t1.user == "user"
-    assert t1.cachefor == 300000
     assert time_close_to_now(t1.created, 10)
     assert t1.expires - t1.created == 3600000
     
+    assert t2 == Token(
+        id=t2.id, user="user_random1", cachefor=300000, created=t2.created, expires=t2.expires
+    )
     assert is_valid_uuid(t2.id)
-    assert t2.user == "user_random1"
-    assert t2.cachefor == 300000
     assert time_close_to_now(t2.created, 10)
     assert t2.expires - t2.created == 3600000
 
@@ -222,17 +230,10 @@ async def test_get_user_basic(auth_users):
         u3 = await cli.get_user(auth_users["user_random1"])
         u4 = await cli.get_user(auth_users["user_random2"])
 
-    assert u1.user == "user"
-    assert u1.customroles == []
-
-    assert u2.user == "user_all"
-    assert u2.customroles == ["random1", "random2"]
-    
-    assert u3.user == "user_random1"
-    assert u3.customroles == ["random1"]
-    
-    assert u4.user == "user_random2"
-    assert u4.customroles == ["random2"]
+    assert u1 == User(user="user", customroles=[])
+    assert u2 == User(user="user_all", customroles=["random1", "random2"])
+    assert u3 == User(user="user_random1", customroles=["random1"])
+    assert u4 == User(user="user_random2", customroles=["random2"])
 
 
 @pytest.mark.asyncio
