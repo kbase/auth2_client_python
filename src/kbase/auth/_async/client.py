@@ -131,7 +131,7 @@ class AsyncKBaseAuthClient:
             raise ValueError("timer is required")
         self._token_cache = LRUCache(maxsize=cache_max_size, timer=timer)
         self._user_cache = LRUCache(maxsize=cache_max_size, timer=timer)
-        self._user_name_cache = LRUCache(maxsize=cache_max_size, timer=timer)
+        self._username_cache = LRUCache(maxsize=cache_max_size, timer=timer)
         self._cli = httpx.AsyncClient()
 
     async def __aenter__(self):
@@ -224,7 +224,7 @@ class AsyncKBaseAuthClient:
         to_return = {}
         to_query = set()
         for u in uns.keys():
-            if self._user_name_cache.get(u, default=False):
+            if self._username_cache.get(u, default=False):
                 to_return[u] = True
             else:
                 if on_cache_miss:
@@ -247,5 +247,5 @@ class AsyncKBaseAuthClient:
                 # Don't cache non-existant names, could be created at any time and would
                 # be terrible UX for new users
                 # TODO TEST later may want to add tests that change the cachefor value.
-                self._user_name_cache.set(u, True, ttl=tk.cachefor / 1000)
+                self._username_cache.set(u, True, ttl=tk.cachefor / 1000)
         return to_return
