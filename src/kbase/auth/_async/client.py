@@ -238,9 +238,8 @@ class AsyncKBaseAuthClient:
         )
         tk = None
         for u in to_query:
-            exists = u in res
-            to_return[u] = exists
-            if exists:
+            to_return[u] = u in res
+            if to_return[u]:
                 if not tk:  # minor optimization, don't get the token until it's needed
                     tk = await self.get_token(token)
                 # Usernames are permanent but can be disabled, so we expire based on time
