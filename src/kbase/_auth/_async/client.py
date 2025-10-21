@@ -16,7 +16,6 @@ from typing import Self, Callable
 from kbase._auth.exceptions import InvalidTokenError, InvalidUserError
 from kbase._auth.models import Token, User, VALID_TOKEN_FIELDS, VALID_USER_FIELDS
 
-# TODO PUBLISH make a pypi kbase org and publish there
 # TODO RELIABILITY could add retries for these methods, tenacity looks useful
 #                  should be safe since they're all read only
 # We might want to expand exceptions to include the request ID for debugging purposes
