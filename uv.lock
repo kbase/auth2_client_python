@@ -296,8 +296,8 @@ wheels = [
 ]
 
 [[package]]
-name = "kbase-auth"
-version = "0.1.0"
+name = "kbase-auth-client"
+version = "0.1.1"
 source = { editable = "." }
 dependencies = [
     { name = "cacheout" },
@@ -317,8 +317,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cacheout", specifier = "==0.16.0" },
-    { name = "httpx", specifier = "==0.28.1" },
+    { name = "cacheout", specifier = ">=0.16.0" },
+    { name = "httpx", specifier = ">=0.28.1" },
 ]
 
 [package.metadata.requires-dev]

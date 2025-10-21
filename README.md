@@ -8,7 +8,9 @@ Most other uses are easily done with any http/REST client like `requests` or `ht
 
 ## Installation
 
-TODO INSTALL setup a KBase pypi org and publish there
+```
+pip install kbase-auth-client
+```
 
 ## Usage
 
@@ -103,7 +105,7 @@ uv run scripts/process_unasync.py
 * Releases
   * The main branch is the stable branch. Releases are made from the develop branch to the main
     branch.
-  * Update the version in `auth.py`.
+  * Update the version in `auth.py` and `pyproject.toml`.
   * Tag the version in git and github.
   * Create a github release.
 
