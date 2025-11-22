@@ -14,7 +14,7 @@ import time
 from typing import Self, Callable
 
 from kbase._auth.exceptions import InvalidTokenError, InvalidUserError
-from kbase._auth.models import Token, User, VALID_TOKEN_FIELDS, VALID_USER_FIELDS
+from kbase._auth.models import Token, User, VALID_TOKEN_FIELDS, VALID_USER_FIELDS, MFAStatus
 
 # TODO RELIABILITY could add retries for these methods, tenacity looks useful
 #                  should be safe since they're all read only
@@ -133,7 +133,9 @@ class KBaseAuthClient:
         if on_cache_miss:
             on_cache_miss()
         res = self._get(self._token_url, headers={"Authorization": token})
-        tk = Token(**{k: v for k, v in res.items() if k in VALID_TOKEN_FIELDS})
+        targs = {k: v for k, v in res.items() if k in VALID_TOKEN_FIELDS}
+        targs["mfa"] = MFAStatus.get_mfa(res.get("mfa"))
+        tk = Token(**targs)
         # TODO TEST later may want to add tests that change the cachefor value.
         self._token_cache.set(token, tk, ttl=tk.cachefor / 1000)
         return tk

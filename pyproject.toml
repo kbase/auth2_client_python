@@ -1,6 +1,6 @@
 [project]
 name = "kbase-auth-client"
-version = "0.1.1"
+version = "0.1.2"
 description = "Client for the KBase Authentication Service"
 readme = "README.md"
 authors = [{ name = "KBase Development Team" }]
