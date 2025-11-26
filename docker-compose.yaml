@@ -1,7 +1,7 @@
 services:
 
   auth:
-    image: ghcr.io/kbase/auth2:0.7.1
+    image: ghcr.io/kbase/auth2:0.8.0
     platform: linux/amd64
     ports:
       - 50001:8080

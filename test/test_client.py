@@ -14,10 +14,24 @@ from kbase.auth import (
     User,
     __version__ as ver,
 )
+from kbase._auth.models import MFAStatus
 
 
 def test_version():
-    assert ver == "0.1.1"
+    assert ver == "0.1.2"
+
+
+def test_mfastatus_get_mfa():
+    assert MFAStatus.get_mfa(None) == MFAStatus.UNKNOWN
+    assert MFAStatus.get_mfa("Used") == MFAStatus.USED
+    assert MFAStatus.get_mfa("UnKnoWn") == MFAStatus.UNKNOWN
+    assert MFAStatus.get_mfa("notused") == MFAStatus.NOT_USED
+
+
+def test_mfastatus_get_mfa_fail():
+    for mfa in ["foo", "useded", "dunno"]:
+        with pytest.raises(ValueError, match=f"Unknown MFA string: {mfa}"):
+            MFAStatus.get_mfa(mfa)
 
 
 async def _create_fail(url: str, expected: Exception, cachesize=1, timer=time.time):
@@ -100,20 +114,36 @@ async def test_get_token_basic(auth_users):
         t1 = cli.get_token(auth_users["user"])
     async with await AsyncKBaseAuthClient.create(AUTH_URL) as cli:
         t2 = await cli.get_token(auth_users["user_random1"])
-
+        t3 = await cli.get_token(auth_users["user_random2"])
+        t4 = await cli.get_token(auth_users["user_all"])
+    
     assert t1 == Token(
-        id=t1.id, user="user", cachefor=300000, created=t1.created, expires=t1.expires
+        id=t1.id,
+        user="user",
+        cachefor=300000,
+        created=t1.created,
+        expires=t1.expires,
+        mfa=MFAStatus.USED,
     )
     assert is_valid_uuid(t1.id)
     assert time_close_to_now(t1.created, 10)
     assert t1.expires - t1.created == 3600000
     
     assert t2 == Token(
-        id=t2.id, user="user_random1", cachefor=300000, created=t2.created, expires=t2.expires
+        id=t2.id,
+        user="user_random1",
+        cachefor=300000,
+        created=t2.created,
+        expires=t2.expires,
+        mfa=MFAStatus.UNKNOWN,
     )
     assert is_valid_uuid(t2.id)
     assert time_close_to_now(t2.created, 10)
     assert t2.expires - t2.created == 3600000
+    
+    # for the remaining tokens we just check mfa
+    assert t3.mfa == MFAStatus.NOT_USED
+    assert t4.mfa == MFAStatus.UNKNOWN
 
 
 @pytest.mark.asyncio

@@ -43,7 +43,7 @@ from kbase.auth import AsyncKBaseAuthClient
 
 async with await AsyncKBaseAuthClient.create("https://ci.kbase.us/services/auth") as cli:
     print(await cli.get_token(token))
-Token(id='67797406-c6a3-4ee0-870d-976739dacd61', user='gaprice', created=1755561300704, expires=1763337300704, cachefor=300000)
+Token(id='67797406-c6a3-4ee0-870d-976739dacd61', user='gaprice', mfa=<MFAStatus.UNKNOWN: 3>, created=1755561300704, expires=1763337300704, cachefor=300000)
 ```
 
 ### Get a user

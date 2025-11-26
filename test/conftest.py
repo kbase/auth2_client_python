@@ -18,7 +18,7 @@ _AUTH_SERVICE_NAME = "auth"
 
 AUTH_URL = "http://localhost:50001/testmode"
 _AUTH_API = AUTH_URL + "/api/V2/"
-AUTH_VERSION = "0.7.1"
+AUTH_VERSION = "0.8.0"
 
 SOME_RANDOM_ROLE1 = "random1"
 SOME_RANDOM_ROLE2 = "random2"
@@ -107,16 +107,24 @@ def add_roles(user: str, roles: list[str]):
     res = requests.put(
         f"{_AUTH_API}testmodeonly/userroles", json={"user": user, "customroles": roles},
     )
+    if not res.status_code == 200:
+        print(res.text)
     res.raise_for_status()
 
 
 @pytest.fixture(scope="session", autouse=True)
 def auth_users(set_up_auth_roles) -> dict[str, str]:  # username -> token
     ret = {}
-    for u in ["user", "user_random1", "user_random2", "user_all"]:
+    users = {
+        "user": "Used", "user_random1": "Unknown", "user_random2": "NotUsed", "user_all": None
+    }
+    for u, mfa in users.items():
         res = requests.post(f"{_AUTH_API}testmodeonly/user", json={"user": u, "display": "foo"})
         res.raise_for_status()
-        res = requests.post(f"{_AUTH_API}testmodeonly/token", json={"user": u, "type": "Dev"})
+        reqjson = {"user": u, "type": "Login"}
+        if mfa:
+            reqjson["mfa"] = mfa
+        res = requests.post(f"{_AUTH_API}testmodeonly/token", json=reqjson)
         res.raise_for_status()
         ret[u] = res.json()["token"]
     
