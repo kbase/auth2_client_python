@@ -14,7 +14,7 @@ from kbase.auth import (
     User,
     __version__ as ver,
 )
-from kbase._auth.models import MFAStatus
+from kbase._auth.models import MFAStatus, TokenType
 
 
 def test_version():
@@ -32,6 +32,22 @@ def test_mfastatus_get_mfa_fail():
     for mfa in ["foo", "useded", "dunno"]:
         with pytest.raises(ValueError, match=f"Unknown MFA string: {mfa}"):
             MFAStatus.get_mfa(mfa)
+
+
+def test_tokentype_get_tokentype():
+    assert TokenType.get_type("Login") == TokenType.LOGIN
+    assert TokenType.get_type("agent") == TokenType.AGENT
+    assert TokenType.get_type("deVelopEr") == TokenType.DEVELOPER
+    assert TokenType.get_type("Service") == TokenType.SERVICE
+
+
+def test_tokentype_get_tokentype_fail():
+    with pytest.raises(ValueError, match="type_ is required"):
+        TokenType.get_type(None)
+
+    for t in ["foo", "loginated", "dunno"]:
+        with pytest.raises(ValueError, match=f"Unknown token type string: {t}"):
+            TokenType.get_type(t)
 
 
 async def _create_fail(url: str, expected: Exception, cachesize=1, timer=time.time):
@@ -120,6 +136,7 @@ async def test_get_token_basic(auth_users):
     assert t1 == Token(
         id=t1.id,
         user="user",
+        type=TokenType.LOGIN,
         cachefor=300000,
         created=t1.created,
         expires=t1.expires,
@@ -132,6 +149,7 @@ async def test_get_token_basic(auth_users):
     assert t2 == Token(
         id=t2.id,
         user="user_random1",
+        type=TokenType.AGENT,
         cachefor=300000,
         created=t2.created,
         expires=t2.expires,
@@ -141,9 +159,11 @@ async def test_get_token_basic(auth_users):
     assert time_close_to_now(t2.created, 10)
     assert t2.expires - t2.created == 3600000
     
-    # for the remaining tokens we just check mfa
+    # for the remaining tokens we just check mfa & type
     assert t3.mfa == MFAStatus.NOT_USED
+    assert t3.type == TokenType.DEVELOPER
     assert t4.mfa == MFAStatus.UNKNOWN
+    assert t4.type == TokenType.SERVICE
 
 
 @pytest.mark.asyncio
