@@ -116,15 +116,20 @@ def add_roles(user: str, roles: list[str]):
 def auth_users(set_up_auth_roles) -> dict[str, str]:  # username -> token
     ret = {}
     users = {
-        "user": "Used", "user_random1": "Unknown", "user_random2": "NotUsed", "user_all": None
+        "user": ("Used", "Login"),
+        "user_random1": ("Unknown", "Agent"),
+        "user_random2": ("NotUsed", "Dev"),
+        "user_all": (None, "Serv"),
     }
-    for u, mfa in users.items():
+    for u, (mfa, tt) in users.items():
         res = requests.post(f"{_AUTH_API}testmodeonly/user", json={"user": u, "display": "foo"})
         res.raise_for_status()
-        reqjson = {"user": u, "type": "Login"}
+        reqjson = {"user": u, "type": tt}
         if mfa:
             reqjson["mfa"] = mfa
         res = requests.post(f"{_AUTH_API}testmodeonly/token", json=reqjson)
+        if not res.status_code == 200:
+            print(res.text)
         res.raise_for_status()
         ret[u] = res.json()["token"]
     
